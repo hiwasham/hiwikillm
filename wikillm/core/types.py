@@ -23,6 +23,7 @@ class RawItem:
     source_ref: str                          # URL, file path, or short identifier
     raw_payload: str | None = None           # inline content for text-kind items
     extras: dict[str, Any] = field(default_factory=dict)
+    vault: str = "default"                   # multi-vault routing (Phase E)
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,10 @@ class DistilledNote:
     raw_item: RawItem
     captured_at: dt.datetime
     note_path: str | None = None             # set once written to disk by markdown-vault
+
+    @property
+    def vault(self) -> str:
+        return self.raw_item.vault
 
 
 @runtime_checkable

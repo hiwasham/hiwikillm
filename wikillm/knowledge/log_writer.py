@@ -11,6 +11,7 @@ from pathlib import Path
 from ..core.config import Config
 from ..core.registry import register_knowledge_stage
 from ..core.types import PipelineState
+from ..core.vaults import vault_notes_dir
 
 
 class LogWriterStage:
@@ -19,13 +20,14 @@ class LogWriterStage:
     def run(self, config: Config, state: PipelineState) -> None:
         if state.distilled is None:
             return
-        log_path = config.notes_dir / "log.md"
+        from ..core.vaults import vault_notes_dir
+        log_path = vault_notes_dir(config, state.item.vault) / "log.md"
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
         now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         np = state.distilled.note_path or ""
         try:
-            rel = Path(np).relative_to(config.notes_dir) if np else "(unknown)"
+            rel = Path(np).relative_to(vault_notes_dir(config, state.item.vault)) if np else "(unknown)"
         except ValueError:
             rel = np
         chunks = state.artifacts.get("milvus_chunks", 0)

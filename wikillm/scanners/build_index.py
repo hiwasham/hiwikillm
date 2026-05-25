@@ -14,6 +14,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from ..core.config import Config
+from ..core.vaults import vault_notes_dir
 from ..knowledge.entity_index import all_entities, extract_entities
 
 
@@ -46,16 +47,25 @@ def _parse_frontmatter(md: str) -> tuple[dict[str, str], list[str]]:
     return fields, tags
 
 
-def build_index(config: Config, *, top_entities: int = 50) -> Path:
-    notes_dir = config.notes_dir
+def build_index(config: Config, *, top_entities: int = 50, vault: str = "default") -> Path:
+    notes_dir = vault_notes_dir(config, vault)
     if not notes_dir.exists():
-        raise FileNotFoundError(f"notes_dir does not exist: {notes_dir}")
+        raise FileNotFoundError(f"notes_dir does not exist for vault {vault!r}: {notes_dir}")
 
     rows: list[tuple[str, Path, dict[str, str], list[str]]] = []  # title, path, meta, tags
     by_tag: dict[str, list[tuple[str, Path]]] = defaultdict(list)
 
+    from ..core.vaults import list_vaults
+    other_vault_dirs = set()
+    if vault == "default":
+        for v in list_vaults(config):
+            if v != "default":
+                other_vault_dirs.add(notes_dir / v)
     for p in sorted(notes_dir.rglob("*.md")):
         if p.name in {"index.md", "log.md"}:
+            continue
+        # When building the default-vault index, skip any path nested under a named-vault dir.
+        if any(d in p.parents for d in other_vault_dirs):
             continue
         md = p.read_text(encoding="utf-8", errors="replace")
         meta, tags = _parse_frontmatter(md)
@@ -65,7 +75,7 @@ def build_index(config: Config, *, top_entities: int = 50) -> Path:
             by_tag[t].append((title, p))
 
     # Fall back to scanning notes for entity counts if entity-index hasn't been populated yet.
-    entity_counts = all_entities(config)
+    entity_counts = all_entities(config, vault=vault)
     if not entity_counts:
         counts: dict[str, int] = defaultdict(int)
         for _, p, _, _ in rows:
@@ -75,7 +85,8 @@ def build_index(config: Config, *, top_entities: int = 50) -> Path:
         entity_counts = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
 
     lines: list[str] = []
-    lines.append("# wikillm — index")
+    vault_label = "" if vault == "default" else f" — vault `{vault}`"
+    lines.append(f"# wikillm — index{vault_label}")
     lines.append("")
     lines.append(f"_{len(rows)} notes, {sum(len(v) for v in by_tag.values())} tag links, "
                  f"{len(entity_counts)} unique entities. Regenerate with `wikillm build-index`._")

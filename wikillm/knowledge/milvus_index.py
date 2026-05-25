@@ -15,24 +15,31 @@ from ..core.types import PipelineState
 
 _MILVUS_CLIENT: Any = None
 _EMBED_MODEL: Any = None
+_LOADED_COLLECTIONS: set[str] = set()
 
 
-def _get_milvus_client(config: Config):
+def _get_milvus_client(config: Config, collection: str | None = None):
+    """Return the singleton client, ensuring `collection` exists + is loaded.
+
+    `collection` defaults to the default-vault collection. Pass an explicit name
+    when querying or indexing a non-default vault.
+    """
     global _MILVUS_CLIENT
     if _MILVUS_CLIENT is None:
         from pymilvus import MilvusClient
         _MILVUS_CLIENT = MilvusClient(uri=config.milvus_uri)
-        if not _MILVUS_CLIENT.has_collection(config.milvus_collection):
+    coll = collection or config.milvus_collection
+    if coll not in _LOADED_COLLECTIONS:
+        if not _MILVUS_CLIENT.has_collection(coll):
             _MILVUS_CLIENT.create_collection(
-                collection_name=config.milvus_collection,
+                collection_name=coll,
                 dimension=config.milvus_embedding_dim,
                 metric_type="COSINE",
                 auto_id=True,
                 enable_dynamic_field=True,
             )
-        # Milvus collections must be explicitly loaded before search/query.
-        # load_collection is idempotent; safe to call every time.
-        _MILVUS_CLIENT.load_collection(collection_name=config.milvus_collection)
+        _MILVUS_CLIENT.load_collection(collection_name=coll)
+        _LOADED_COLLECTIONS.add(coll)
     return _MILVUS_CLIENT
 
 
@@ -90,20 +97,19 @@ def index_markdown(
     source_ref: str,
     markdown: str,
     captured_at: str,
+    vault: str = "default",
 ) -> int:
     """Re-index one note. Deletes prior chunks for this note_path, then inserts fresh ones."""
-    client = _get_milvus_client(config)
+    from ..core.vaults import vault_milvus_collection
+    coll = vault_milvus_collection(config, vault)
+    client = _get_milvus_client(config, coll)
     body = _strip_frontmatter(markdown)
     chunks = _chunk(body, config.chunk_size_chars, config.chunk_overlap_chars)
     if not chunks:
         return 0
 
-    # Idempotent re-index: best-effort delete of any existing rows for this note.
     try:
-        client.delete(
-            collection_name=config.milvus_collection,
-            filter=f'note_path == "{note_path}"',
-        )
+        client.delete(collection_name=coll, filter=f'note_path == "{note_path}"')
     except Exception:
         pass
 
@@ -118,33 +124,38 @@ def index_markdown(
             "chunk_idx": idx,
             "text": chunk,
             "captured_at": captured_at,
+            "vault": vault,
         }
         for idx, (chunk, v) in enumerate(zip(chunks, vectors))
     ]
-    client.insert(collection_name=config.milvus_collection, data=rows)
+    client.insert(collection_name=coll, data=rows)
     return len(rows)
 
 
-def search(config: Config, *, query: str, top_k: int) -> list[dict]:
-    """Return top-k hits. Each hit has 'entity' with the stored fields plus 'distance'."""
-    client = _get_milvus_client(config)
+def search(config: Config, *, query: str, top_k: int, vault: str = "default") -> list[dict]:
+    """Return top-k hits from the given vault's collection."""
+    from ..core.vaults import vault_milvus_collection
+    coll = vault_milvus_collection(config, vault)
+    client = _get_milvus_client(config, coll)
     vec = embed_one(config, query)
     results = client.search(
-        collection_name=config.milvus_collection,
+        collection_name=coll,
         data=[vec],
         limit=top_k,
-        output_fields=["note_path", "title", "kind", "source_ref", "chunk_idx", "text", "captured_at"],
+        output_fields=["note_path", "title", "kind", "source_ref", "chunk_idx", "text", "captured_at", "vault"],
     )
     if not results:
         return []
     return list(results[0])
 
 
-def collection_stats(config: Config) -> dict:
-    client = _get_milvus_client(config)
-    if not client.has_collection(config.milvus_collection):
+def collection_stats(config: Config, vault: str = "default") -> dict:
+    from ..core.vaults import vault_milvus_collection
+    coll = vault_milvus_collection(config, vault)
+    client = _get_milvus_client(config, coll)
+    if not client.has_collection(coll):
         return {"exists": False}
-    n = client.get_collection_stats(collection_name=config.milvus_collection)
+    n = client.get_collection_stats(collection_name=coll)
     return {"exists": True, "stats": n}
 
 
@@ -162,6 +173,7 @@ class MilvusIndexStage:
             source_ref=state.item.source_ref,
             markdown=state.distilled.markdown,
             captured_at=state.distilled.captured_at.isoformat(),
+            vault=state.item.vault,
         )
         state.artifacts["milvus_chunks"] = n
 

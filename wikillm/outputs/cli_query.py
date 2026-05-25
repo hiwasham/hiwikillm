@@ -31,14 +31,14 @@ def _hit_field(hit: dict, key: str, default: str = "") -> str:
     return default
 
 
-def pointer_query(config: Config, question: str, top_k: int | None = None) -> list[dict]:
-    """Top-k semantic search. No LLM call. Returns raw Milvus hits."""
+def pointer_query(config: Config, question: str, top_k: int | None = None, vault: str = "default") -> list[dict]:
+    """Top-k semantic search in a single vault. No LLM call."""
     from ..knowledge.milvus_index import search
-    return search(config, query=question, top_k=top_k or config.top_k)
+    return search(config, query=question, top_k=top_k or config.top_k, vault=vault)
 
 
-def synthesis_query(config: Config, question: str, top_k: int | None = None) -> tuple[str, list[dict]]:
-    hits = pointer_query(config, question, top_k=top_k)
+def synthesis_query(config: Config, question: str, top_k: int | None = None, vault: str = "default") -> tuple[str, list[dict]]:
+    hits = pointer_query(config, question, top_k=top_k, vault=vault)
     if not hits:
         return (
             "(no relevant notes found — has the index been populated? "

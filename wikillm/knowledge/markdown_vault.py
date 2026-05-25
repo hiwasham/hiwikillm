@@ -1,6 +1,7 @@
 """Markdown-vault stage — writes the DistilledNote to disk under notes/YYYY/MM/.
 
-Phase B: this directory will live inside Drive so it syncs into the Obsidian vault.
+For non-default vaults the path nests under `notes/<vault>/YYYY/MM/`. The default
+vault preserves the pre-multivault layout (notes directly in `notes/YYYY/MM/`).
 """
 from __future__ import annotations
 
@@ -10,6 +11,7 @@ from pathlib import Path
 from ..core.config import Config
 from ..core.registry import register_knowledge_stage
 from ..core.types import DistilledNote, PipelineState
+from ..core.vaults import vault_notes_dir
 
 
 def _write(notes_dir: Path, note: DistilledNote) -> Path:
@@ -30,7 +32,7 @@ class MarkdownVaultStage:
     def run(self, config: Config, state: PipelineState) -> None:
         if state.distilled is None:
             raise RuntimeError("markdown-vault: no distilled note in state (run llm-distill first)")
-        path = _write(config.notes_dir, state.distilled)
+        path = _write(vault_notes_dir(config, state.item.vault), state.distilled)
         state.distilled = replace(state.distilled, note_path=str(path))
         state.artifacts["note_path"] = str(path)
 

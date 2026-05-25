@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 
 from ..core.config import Config
+from ..core.vaults import vault_notes_dir, vault_todos_dir
 
 
 _OPEN_Q_RE = re.compile(
@@ -28,8 +29,9 @@ def extract_open_questions(md: str) -> list[str]:
     return [b.strip() for b in _BULLET_RE.findall(m.group(1))]
 
 
-def build_todos(config: Config) -> Path:
-    todos_dir = config.root / "todos"
+def build_todos(config: Config, *, vault: str = "default") -> Path:
+    notes_dir = vault_notes_dir(config, vault)
+    todos_dir = vault_todos_dir(config, vault)
     todos_dir.mkdir(parents=True, exist_ok=True)
     out = todos_dir / "index.md"
 
@@ -37,7 +39,15 @@ def build_todos(config: Config) -> Path:
     q_count = 0
     sections: list[str] = []
 
-    for p in sorted(config.notes_dir.rglob("*.md")):
+    from ..core.vaults import list_vaults
+    other_vault_dirs = set()
+    if vault == "default":
+        for v in list_vaults(config):
+            if v != "default":
+                other_vault_dirs.add(notes_dir / v)
+    for p in sorted(notes_dir.rglob("*.md")):
+        if any(d in p.parents for d in other_vault_dirs):
+            continue
         if p.name in {"index.md", "log.md"}:
             continue
         md = p.read_text(encoding="utf-8", errors="replace")
@@ -48,7 +58,7 @@ def build_todos(config: Config) -> Path:
         title = title_m.group(1).strip() if title_m else p.stem
         source_m = _SOURCE_RE.search(md)
         source = source_m.group(1).strip() if source_m else ""
-        rel = p.relative_to(config.notes_dir)
+        rel = p.relative_to(notes_dir)
 
         section_lines = [f"## From [[{title}]]"]
         section_lines.append(f"_`{rel}`{('  •  ' + source) if source else ''}_")
@@ -60,8 +70,9 @@ def build_todos(config: Config) -> Path:
         note_count += 1
         q_count += len(questions)
 
+    vault_label = "" if vault == "default" else f" — vault `{vault}`"
     header = [
-        "# wikillm — open questions",
+        f"# wikillm — open questions{vault_label}",
         "",
         "_Surfaced by the LLM curator from each distilled note's `## Open questions` "
         "section. Useful as a research-priority queue: pick one, capture sources that "

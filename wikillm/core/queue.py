@@ -8,12 +8,13 @@ from pathlib import Path
 from typing import Iterator, Optional
 
 
-SCHEMA = """
+TABLE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS inbox (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     kind          TEXT NOT NULL,
     source_ref    TEXT NOT NULL,
     raw_payload   TEXT,
+    vault         TEXT NOT NULL DEFAULT 'default',
     status        TEXT NOT NULL DEFAULT 'pending',
     error         TEXT,
     note_path     TEXT,
@@ -24,6 +25,15 @@ CREATE TABLE IF NOT EXISTS inbox (
 CREATE INDEX IF NOT EXISTS idx_inbox_status ON inbox(status, captured_at);
 """
 
+SCHEMA = TABLE_SCHEMA   # backwards-compat name
+
+
+def _ensure_vault_column(conn) -> None:
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(inbox)").fetchall()}
+    if "vault" not in cols:
+        conn.execute("ALTER TABLE inbox ADD COLUMN vault TEXT NOT NULL DEFAULT 'default'")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_inbox_vault ON inbox(vault)")
+
 
 @contextmanager
 def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
@@ -31,17 +41,22 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
     conn = sqlite3.connect(db_path, isolation_level=None)
     conn.row_factory = sqlite3.Row
     try:
-        conn.executescript(SCHEMA)
+        conn.executescript(TABLE_SCHEMA)
+        _ensure_vault_column(conn)
         yield conn
     finally:
         conn.close()
 
 
 def enqueue(db_path: Path, kind: str, source_ref: str, raw_payload: Optional[str] = None) -> int:
+    return enqueue_with_vault(db_path, kind, source_ref, raw_payload, "default")
+
+
+def enqueue_with_vault(db_path: Path, kind: str, source_ref: str, raw_payload: Optional[str], vault: str) -> int:
     with connect(db_path) as conn:
         cur = conn.execute(
-            "INSERT INTO inbox (kind, source_ref, raw_payload, captured_at) VALUES (?,?,?,?)",
-            (kind, source_ref, raw_payload, time.time()),
+            "INSERT INTO inbox (kind, source_ref, raw_payload, vault, captured_at) VALUES (?,?,?,?,?)",
+            (kind, source_ref, raw_payload, vault, time.time()),
         )
         return int(cur.lastrowid)
 

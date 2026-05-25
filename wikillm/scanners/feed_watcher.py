@@ -102,9 +102,9 @@ def scan_feeds(config: Config) -> dict:
                 by_feed[feed_url] = 0
                 continue
 
+            feed_vault = feed_cfg.get("vault", "default")
             new_this_feed = 0
             for entry in parsed.entries:
-                # Prefer guid/id over link for dedup (links can be tracking-mangled)
                 entry_id = (
                     entry.get("id")
                     or entry.get("guid")
@@ -120,7 +120,7 @@ def scan_feeds(config: Config) -> dict:
                 if not link:
                     continue
 
-                queue.enqueue(config.inbox_db, kind_hint, link, None)
+                queue.enqueue_with_vault(config.inbox_db, kind_hint, link, None, feed_vault)
                 _mark(conn, feed_url, entry_id)
                 new_this_feed += 1
 
