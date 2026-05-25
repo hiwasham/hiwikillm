@@ -12,3 +12,5 @@ Future: graph_store, crewai_pipeline, airflow_dag, dashboard_data
 from . import llm_distill      # noqa: F401  -- distills raw text into DistilledNote
 from . import markdown_vault   # noqa: F401  -- writes DistilledNote to disk
 from . import milvus_index     # noqa: F401  -- chunks + embeds + upserts into Milvus
+from . import entity_index     # noqa: F401  -- Phase D: SQLite index of [[wikilinks]] per note
+from . import log_writer       # noqa: F401  -- Phase D: append-only human-readable log

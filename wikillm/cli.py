@@ -222,6 +222,56 @@ def cmd_scan(args) -> int:
     return 0
 
 
+def cmd_build_index(args) -> int:
+    """Walk notes/ and write notes/index.md (Karpathy-pattern TOC + top entities)."""
+    cfg = load_config()
+    from .scanners.build_index import build_index
+    out = build_index(cfg)
+    print(f"wrote {out}")
+    return 0
+
+
+def cmd_build_todos(args) -> int:
+    """Walk notes/, extract `## Open questions`, write todos/index.md."""
+    cfg = load_config()
+    from .scanners.build_todos import build_todos
+    out = build_todos(cfg)
+    print(f"wrote {out}")
+    return 0
+
+
+def cmd_entities(args) -> int:
+    """List all `[[entity]]` references seen across notes, sorted by note count."""
+    cfg = load_config()
+    from .knowledge.entity_index import all_entities
+    rows = all_entities(cfg)
+    if not rows:
+        print("(no entities indexed yet — process some notes or run `backfill-entities`)")
+        return 0
+    width = max(len(name) for name, _ in rows[: args.limit])
+    for name, n in rows[: args.limit]:
+        print(f"  {name:<{width}}  {n}")
+    return 0
+
+
+def cmd_backfill_entities(args) -> int:
+    """Re-extract `[[entities]]` from every note in notes/ into data/entities.db."""
+    cfg = load_config()
+    from .knowledge.entity_index import index_entities_for_note
+    total_entities = 0
+    total_notes = 0
+    for p in sorted(cfg.notes_dir.rglob("*.md")):
+        if p.name in {"index.md", "log.md"}:
+            continue
+        md = p.read_text(encoding="utf-8", errors="replace")
+        n = index_entities_for_note(cfg, str(p), md)
+        print(f"  {p.relative_to(cfg.notes_dir)} -> {n} entities")
+        total_entities += n
+        total_notes += 1
+    print(f"done: {total_entities} entity rows across {total_notes} notes")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="wikillm")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -261,6 +311,19 @@ def main(argv: list[str] | None = None) -> int:
 
     p_scan = sub.add_parser("scan", help="enqueue new files dropped into sources_dir")
     p_scan.set_defaults(fn=cmd_scan)
+
+    p_bi = sub.add_parser("build-index", help="write notes/index.md (TOC + top entities)")
+    p_bi.set_defaults(fn=cmd_build_index)
+
+    p_bt = sub.add_parser("build-todos", help="write todos/index.md (open questions per note)")
+    p_bt.set_defaults(fn=cmd_build_todos)
+
+    p_ents = sub.add_parser("entities", help="list [[entities]] across notes by frequency")
+    p_ents.add_argument("--limit", type=int, default=50)
+    p_ents.set_defaults(fn=cmd_entities)
+
+    p_bfe = sub.add_parser("backfill-entities", help="re-extract entities from every note")
+    p_bfe.set_defaults(fn=cmd_backfill_entities)
 
     args = p.parse_args(argv)
     return int(args.fn(args) or 0)

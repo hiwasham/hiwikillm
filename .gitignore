@@ -6,6 +6,7 @@ config.toml
 data/
 notes/
 sources/
+todos/
 
 # Build / virtualenv / cache artifacts
 __pycache__/

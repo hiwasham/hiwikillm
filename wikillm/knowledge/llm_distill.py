@@ -25,6 +25,12 @@ REQUIRED STRUCTURE (in this exact order):
    - source: "{source}"
    - kind: "{kind}"
    - captured_at: "{captured_at}"
+   - page_type: one of `Source`, `Entity`, `Concept`, `Comparison`, `Project` based on what the source PRIMARILY IS:
+       * `Source` — most articles, blog posts, podcasts, videos. The default when in doubt.
+       * `Entity` — a person, organization, product (their homepage, profile, about-page).
+       * `Concept` — explains an idea, technique, or term in depth.
+       * `Comparison` — compares two or more things ("X vs Y", roundups, reviews of multiple options).
+       * `Project` — code repos, open-source projects, ongoing initiatives.
    - tags: a YAML list of 3-7 short kebab-case tags
 
 2. `# <Title>` — repeat the title as an H1.
