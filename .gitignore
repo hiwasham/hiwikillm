@@ -1,0 +1,24 @@
+# Local config — contains your actual Telegram bot token, paths, etc.
+# Use config.example.toml as a template; copy it to config.toml and fill in.
+config.toml
+
+# Your personal wiki — keep your notes & raw sources out of the public repo.
+data/
+notes/
+sources/
+
+# Build / virtualenv / cache artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.env
+
+# OS / editor noise
+.DS_Store
+*.swp
+*~
+
+# Local logs
+*.log

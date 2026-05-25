@@ -1,0 +1,53 @@
+# wikillm configuration template.
+# Copy this to config.toml and fill in the real values. config.toml is gitignored.
+
+[paths]
+notes_dir = "notes"
+sources_dir = "sources"
+inbox_db = "data/inbox.db"
+
+
+[gateway]
+# OpenAI-compatible chat completions endpoint used for distillation + synthesis.
+# Default: external freemodel.dev (key read from your local ~/.openclaw/openclaw.json).
+base_url = "https://api.freemodel.dev/v1"
+openclaw_config = "/home/YOU/.openclaw/openclaw.json"
+token_path = "models.providers.freemodel.apiKey"
+
+
+[models]
+# Model alias for distillation. With freemodel: gpt-5.5, gpt-5.4, gpt-5.4-mini, etc.
+distill = "gpt-5.5"
+distill_premium = "gpt-5.5"
+synthesis = "gpt-5.5"
+
+
+[fetch]
+timeout_s = 30
+user_agent = "wikillm/0.1 (+personal-wiki-llm)"
+max_bytes = 5_000_000
+
+
+[distill]
+max_input_chars = 80_000
+
+
+[milvus]
+# Dedicated Milvus Lite DB (single-writer file lock — don't share with other services).
+uri = "data/milvus.db"
+collection = "wikillm_notes"
+embedding_dim = 384
+embedding_model = "BAAI/bge-small-en-v1.5"
+chunk_size_chars = 1200
+chunk_overlap_chars = 200
+top_k = 6
+
+
+[telegram]
+# Get a bot token from @BotFather on Telegram. Keep it secret.
+bot_token = "REPLACE_WITH_YOUR_TELEGRAM_BOT_TOKEN"
+
+# Telegram user IDs that may use the bot (look up yours by messaging @userinfobot).
+owner_ids = []
+
+poll_timeout_s = 30

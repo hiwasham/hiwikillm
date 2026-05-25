@@ -1,0 +1,10 @@
+# wikillm runtime dependencies
+# Python 3.11+ recommended (3.14 tested on Raspberry Pi).
+# Install: pip3 install --user -r requirements.txt
+#   (add --break-system-packages on PEP 668 systems like Debian/Ubuntu)
+
+httpx
+pymilvus[milvus_lite]
+fastembed
+yt-dlp
+pypdf
