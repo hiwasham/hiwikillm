@@ -1,0 +1,20 @@
+[Unit]
+Description=rclone Google Drive mount for wikillm
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/rclone mount gdrive: /home/miraddo/gdrive \
+  --vfs-cache-mode writes \
+  --vfs-cache-max-size 1G \
+  --vfs-write-back 5s \
+  --umask 022
+ExecStop=/bin/fusermount -uz /home/miraddo/gdrive
+Restart=on-failure
+RestartSec=10
+User=miraddo
+Group=miraddo
+
+[Install]
+WantedBy=multi-user.target

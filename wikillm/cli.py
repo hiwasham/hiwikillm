@@ -222,6 +222,21 @@ def cmd_scan(args) -> int:
     return 0
 
 
+def cmd_scan_feeds(args) -> int:
+    """Poll RSS/Atom subscriptions and enqueue any new entries."""
+    cfg = load_config()
+    from .scanners.feed_watcher import scan_feeds
+    result = scan_feeds(cfg)
+    if result["feeds"] == 0:
+        print("no feeds configured — add subscriptions to config.toml [feeds].subscriptions")
+        return 0
+    print(f"polled {result['feeds']} feeds, {result['new_entries']} new entries enqueued")
+    for url, n in sorted(result["by_feed"].items()):
+        if n > 0:
+            print(f"  +{n}  {url}")
+    return 0
+
+
 def cmd_build_index(args) -> int:
     """Walk notes/ and write notes/index.md (Karpathy-pattern TOC + top entities)."""
     cfg = load_config()
@@ -373,6 +388,9 @@ def main(argv: list[str] | None = None) -> int:
 
     p_scan = sub.add_parser("scan", help="enqueue new files dropped into sources_dir")
     p_scan.set_defaults(fn=cmd_scan)
+
+    p_scanf = sub.add_parser("scan-feeds", help="poll RSS/Atom subscriptions and enqueue new entries")
+    p_scanf.set_defaults(fn=cmd_scan_feeds)
 
     p_bi = sub.add_parser("build-index", help="write notes/index.md (TOC + top entities)")
     p_bi.set_defaults(fn=cmd_build_index)

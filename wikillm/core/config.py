@@ -35,6 +35,7 @@ class Config:
     telegram_bot_token: str
     telegram_owner_ids: tuple[int, ...]
     telegram_poll_timeout_s: int
+    feeds: tuple[dict, ...]
 
 
 def _resolve(root: Path, value: str) -> Path:
@@ -84,4 +85,5 @@ def load_config(workspace_root: Path | None = None) -> Config:
         telegram_bot_token=(raw.get("telegram") or {}).get("bot_token", ""),
         telegram_owner_ids=tuple((raw.get("telegram") or {}).get("owner_ids", []) or []),
         telegram_poll_timeout_s=(raw.get("telegram") or {}).get("poll_timeout_s", 30),
+        feeds=tuple((raw.get("feeds") or {}).get("subscriptions", []) or []),
     )

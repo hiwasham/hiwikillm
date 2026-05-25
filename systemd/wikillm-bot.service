@@ -1,0 +1,21 @@
+[Unit]
+Description=wikillm Telegram bot (Karpathy-pattern personal wiki-LLM)
+After=network-online.target rclone-gdrive.service
+Wants=network-online.target
+Requires=rclone-gdrive.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/miraddo/.openclaw/workspace/wikillm
+ExecStart=/usr/bin/python3 -u -m wikillm serve telegram-bot
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:/home/miraddo/.openclaw/workspace/wikillm/bot.log
+StandardError=append:/home/miraddo/.openclaw/workspace/wikillm/bot.log
+User=miraddo
+Group=miraddo
+Environment=HOME=/home/miraddo
+Environment=PATH=/home/miraddo/.local/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=multi-user.target

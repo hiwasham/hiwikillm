@@ -8,3 +8,4 @@ pymilvus[milvus_lite]
 fastembed
 yt-dlp
 pypdf
+feedparser
