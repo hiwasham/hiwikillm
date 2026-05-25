@@ -213,6 +213,15 @@ def cmd_serve(args) -> int:
     return 0
 
 
+def cmd_scan(args) -> int:
+    """Scan watched directories (currently sources_dir) and enqueue any new files."""
+    cfg = load_config()
+    from .scanners.drive_sources import scan_sources_dir
+    n = scan_sources_dir(cfg)
+    print(f"scan complete: {n} new item(s) enqueued from {cfg.sources_dir}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="wikillm")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -249,6 +258,9 @@ def main(argv: list[str] | None = None) -> int:
     p_srv = sub.add_parser("serve", help="run an output adapter's serve loop (blocks)")
     p_srv.add_argument("output_name", help="e.g. telegram-bot")
     p_srv.set_defaults(fn=cmd_serve)
+
+    p_scan = sub.add_parser("scan", help="enqueue new files dropped into sources_dir")
+    p_scan.set_defaults(fn=cmd_scan)
 
     args = p.parse_args(argv)
     return int(args.fn(args) or 0)
