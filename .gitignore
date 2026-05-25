@@ -5,6 +5,7 @@ config.toml
 # Your personal wiki — keep your notes & raw sources out of the public repo.
 data/
 notes/
+notes.local-backup/
 sources/
 todos/
 
