@@ -79,6 +79,38 @@ class TelegramBotOutput:
                     except Exception:
                         traceback.print_exc()
 
+                # Drain inbox between polls. The bot is the sole owner of the Milvus
+                # lock; this is the only safe place to process the queue. Cron writes
+                # to the inbox via `wikillm scan` (SQLite only, no Milvus), and the
+                # bot drains here. Throughput: ~2 items/min worst case (one per
+                # 30s poll cycle); fine for personal use.
+                self._drain_one_inbox_item(config)
+
+    def _drain_one_inbox_item(self, config: Config) -> None:
+        try:
+            from ..core import queue
+            from ..pipeline import process_one
+            row = queue.claim_one(config.inbox_db)
+            if row is None:
+                return
+            row_id = int(row["id"])
+            try:
+                item = RawItem(
+                    kind=row["kind"],
+                    source_ref=row["source_ref"],
+                    raw_payload=row["raw_payload"],
+                )
+                state = process_one(config, item)
+                note_path = state.artifacts.get("note_path", "")
+                queue.mark_done(config.inbox_db, row_id, note_path)
+                print(f"telegram-bot: drained #{row_id} ({item.kind}) -> {note_path}")
+            except Exception as e:
+                queue.mark_error(config.inbox_db, row_id, repr(e))
+                print(f"telegram-bot: drain #{row_id} ERROR: {e!r}")
+        except Exception as e:
+            print(f"telegram-bot: queue-drain wrapper error: {e!r}")
+            traceback.print_exc()
+
     def _handle_update(self, client, api_base, owner_ids, config, update):
         msg = update.get("message") or update.get("channel_post") or update.get("edited_message") or {}
         text = (msg.get("text") or "").strip()
