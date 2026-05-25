@@ -240,6 +240,68 @@ def cmd_build_todos(args) -> int:
     return 0
 
 
+def cmd_canonicalize(args) -> int:
+    """Propose / apply entity-name canonicalization across the vault."""
+    cfg = load_config()
+    from .scanners.canonicalize import canonicalize
+    result = canonicalize(cfg, apply=args.apply)
+    print(f"entities seen:          {result['entities_seen']}")
+    print(f"new mappings proposed:  {result['new_mappings_proposed']}")
+    if args.apply:
+        print(f"notes rewritten:        {result['notes_rewritten']}")
+        print(f"links changed:          {result['links_changed']}")
+        print("(re-run `wikillm backfill && wikillm backfill-entities` to refresh indices)")
+    else:
+        print(f"mapping saved to:       data/canonical_entities.json")
+        print("(dry run — pass --apply to rewrite notes)")
+    return 0
+
+
+def cmd_review(args) -> int:
+    """Show notes due for spaced-repetition review."""
+    cfg = load_config()
+    from .scanners.review import get_due_summary
+    due = get_due_summary(cfg, limit=args.count)
+    if not due:
+        print("(no notes due for review)")
+        return 0
+    print(f"{len(due)} note(s) due for review:\n")
+    for d in due:
+        print(f"  ▸ {d['title']}")
+        rel = d['path'].relative_to(cfg.notes_dir) if cfg.notes_dir in d['path'].parents else d['path']
+        print(f"    {rel}")
+        if d['count'] == 0:
+            print(f"    (never reviewed; first seen {d['overdue_days']:.0f} days ago)")
+        else:
+            print(f"    (reviewed {d['count']}x; overdue by {d['overdue_days']:.0f} days)")
+        if d['tldr']:
+            for line in d['tldr'].splitlines()[:5]:
+                if line.strip():
+                    print(f"      {line}")
+        print()
+    print(f"mark a note reviewed:  wikillm reviewed <slug-fragment>")
+    return 0
+
+
+def cmd_reviewed(args) -> int:
+    """Record that a note has been re-read."""
+    cfg = load_config()
+    from .scanners.review import find_note_by_slug, mark_reviewed
+    matches = find_note_by_slug(cfg, args.slug)
+    if not matches:
+        print(f"no note matches slug fragment {args.slug!r}", file=sys.stderr)
+        return 1
+    if len(matches) > 1:
+        print(f"multiple notes match {args.slug!r}:", file=sys.stderr)
+        for m in matches:
+            print(f"  - {m.name}", file=sys.stderr)
+        return 1
+    path = matches[0]
+    count = mark_reviewed(cfg, str(path))
+    print(f"marked reviewed: {path.name} (total reviews: {count})")
+    return 0
+
+
 def cmd_entities(args) -> int:
     """List all `[[entity]]` references seen across notes, sorted by note count."""
     cfg = load_config()
@@ -317,6 +379,18 @@ def main(argv: list[str] | None = None) -> int:
 
     p_bt = sub.add_parser("build-todos", help="write todos/index.md (open questions per note)")
     p_bt.set_defaults(fn=cmd_build_todos)
+
+    p_can = sub.add_parser("canonicalize", help="merge variant [[wikilinks]] into canonical names (LLM-driven)")
+    p_can.add_argument("--apply", action="store_true", help="rewrite notes on disk (default: dry-run)")
+    p_can.set_defaults(fn=cmd_canonicalize)
+
+    p_rev = sub.add_parser("review", help="show notes due for spaced-repetition re-reading")
+    p_rev.add_argument("--count", type=int, default=3)
+    p_rev.set_defaults(fn=cmd_review)
+
+    p_revd = sub.add_parser("reviewed", help="record that you re-read a note (matches by slug fragment)")
+    p_revd.add_argument("slug")
+    p_revd.set_defaults(fn=cmd_reviewed)
 
     p_ents = sub.add_parser("entities", help="list [[entities]] across notes by frequency")
     p_ents.add_argument("--limit", type=int, default=50)

@@ -25,6 +25,8 @@ HELP_TEXT = """wikillm — your personal wiki-LLM.
 /capture <url-or-text>   distill a source and add it to your wiki
 /ask <question>          synthesized answer with citations
 /find <query>            top-k matching notes (no LLM call)
+/review                  show 3 notes due for re-reading (spaced repetition)
+/reviewed <slug>         mark a note as re-read
 /stats                   inbox status
 /help                    show this message
 
@@ -152,6 +154,13 @@ class TelegramBotOutput:
                 self._send(client, api_base, chat_id, "usage: /find <query>")
                 return
             self._handle_find(client, api_base, chat_id, config, rest)
+        elif cmd == "review":
+            self._handle_review(client, api_base, chat_id, config)
+        elif cmd == "reviewed":
+            if not rest:
+                self._send(client, api_base, chat_id, "usage: /reviewed <slug-fragment>")
+                return
+            self._handle_reviewed(client, api_base, chat_id, config, rest)
         elif cmd == "stats":
             self._handle_stats(client, api_base, chat_id, config)
         else:
@@ -220,6 +229,45 @@ class TelegramBotOutput:
             self._send(client, api_base, chat_id, "(inbox empty)")
             return
         self._send(client, api_base, chat_id, "Inbox:\n" + "\n".join(f"  {k}: {v}" for k, v in sorted(s.items())))
+
+    def _handle_review(self, client, api_base, chat_id, config):
+        try:
+            from ..scanners.review import get_due_summary
+            due = get_due_summary(config, limit=3)
+            if not due:
+                self._send(client, api_base, chat_id, "(no notes due for review — your vault is up to date)")
+                return
+            blocks = []
+            for d in due:
+                rel = d['path'].relative_to(config.notes_dir) if config.notes_dir in d['path'].parents else d['path']
+                status = f"never reviewed; first seen {d['overdue_days']:.0f}d ago" if d['count'] == 0 \
+                         else f"reviewed {d['count']}x; overdue by {d['overdue_days']:.0f}d"
+                tldr_lines = [ln for ln in (d.get('tldr') or '').splitlines() if ln.strip()][:5]
+                block = f"▸ {d['title']}\n  ({status})\n  slug: {d['path'].stem}"
+                if tldr_lines:
+                    block += "\n" + "\n".join(f"  {ln}" for ln in tldr_lines)
+                blocks.append(block)
+            blocks.append("To mark one read: /reviewed <slug>")
+            self._send(client, api_base, chat_id, "\n\n".join(blocks))
+        except Exception as e:
+            self._send(client, api_base, chat_id, f"review failed: {e!r}")
+
+    def _handle_reviewed(self, client, api_base, chat_id, config, slug):
+        try:
+            from ..scanners.review import find_note_by_slug, mark_reviewed
+            matches = find_note_by_slug(config, slug)
+            if not matches:
+                self._send(client, api_base, chat_id, f"no note matches slug fragment {slug!r}")
+                return
+            if len(matches) > 1:
+                names = "\n".join(f"  - {m.stem}" for m in matches)
+                self._send(client, api_base, chat_id, f"multiple notes match {slug!r}, be more specific:\n{names}")
+                return
+            path = matches[0]
+            count = mark_reviewed(config, str(path))
+            self._send(client, api_base, chat_id, f"marked reviewed: {path.stem} (total reviews: {count})")
+        except Exception as e:
+            self._send(client, api_base, chat_id, f"reviewed failed: {e!r}")
 
     @staticmethod
     def _send(client, api_base, chat_id, text):
