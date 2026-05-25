@@ -134,12 +134,12 @@ def _parse_frontmatter(md: str) -> dict[str, str]:
 
 
 def cmd_backfill(args) -> int:
-    """Walk notes/ and (re-)index every .md file. Idempotent."""
+    """Walk notes/ and (re-)index every .md file. Idempotent. Skips index.md and log.md."""
     load_all()
     cfg = load_config()
     from .knowledge.milvus_index import index_markdown
 
-    paths = sorted(cfg.notes_dir.rglob("*.md"))
+    paths = [p for p in sorted(cfg.notes_dir.rglob("*.md")) if p.name not in {"index.md", "log.md"}]
     print(f"backfilling {len(paths)} notes from {cfg.notes_dir}...")
     total_chunks = 0
     for p in paths:
