@@ -16,6 +16,7 @@ __pycache__/
 .venv/
 venv/
 .env
+.secrets/
 
 # OS / editor noise
 .DS_Store
@@ -24,3 +25,18 @@ venv/
 
 # Local logs
 *.log
+
+# Project Recovery safety additions
+auth.txt
+keys.json
+keys*.json*
+*.pem
+*.key
+*.pyc
+.venv-mkdocs/
+site/
+project-recovery-transcripts.html
+project-recovery-evidence.json
+.gstack/
+.gstack/
+.gstack/

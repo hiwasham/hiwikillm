@@ -1,0 +1,30 @@
+site_name: wikillm Documentation
+theme:
+  name: mkdocs
+docs_dir: docs
+site_dir: site
+nav:
+  - Overview: index.md
+  - Tutorial:
+      - Getting Started: tutorial-getting-started.md
+  - How-to:
+      - Capture and Query: how-to-capture-and-query.md
+      - Use With Obsidian: how-to-use-with-obsidian.md
+      - Sync With GBrain: how-to-sync-with-gbrain.md
+      - Add a Plugin: how-to-add-a-plugin.md
+  - Reference:
+      - CLI: reference-cli.md
+      - Configuration: reference-configuration.md
+  - Explanation:
+      - Architecture: explanation-architecture.md
+      - Integration Research: research-wikillm-integrations.md
+      - GBrain, Obsidian, and Large Vault Research: research-gbrain-obsidian-large-vault.md
+  - Recovery Report: project-recovery.md
+  - Operating System: operating-system.md
+  - Project Story: project-story.md
+  - Evidence Guide: evidence.md
+  - LLM Story Brief: artifacts/PROJECT_STORY_LLM_BRIEF.md
+  - Commit Plan: artifacts/COMMIT_PLAN.md
+  - Dashboard: artifacts/DASHBOARD.md
+  - Build Packet: artifacts/BUILD-PACKET.md
+  - Brainsweep: artifacts/BRAINSWEEP.md

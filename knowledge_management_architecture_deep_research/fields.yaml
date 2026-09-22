@@ -1,0 +1,102 @@
+categories:
+  identity:
+    description: "Basic identity and scope of the researched item."
+    fields:
+      name:
+        description: "Name of the tool, layer, workflow, or architecture concern."
+        detail_level: "brief"
+      category:
+        description: "Core layer, acquisition layer, agent interface, adjacent tool, comparator, risk, or implementation strategy."
+        detail_level: "brief"
+      primary_role:
+        description: "The best role this item should play in the user's knowledge-management stack."
+        detail_level: "moderate"
+      should_adopt:
+        description: "One of adopt, use selectively, defer, avoid, or already present."
+        detail_level: "brief"
+  source_evidence:
+    description: "Research evidence and confidence."
+    fields:
+      official_sources:
+        description: "Official docs, repos, specifications, or local code references used."
+        detail_level: "detailed"
+      community_sources:
+        description: "Community sources used only for adoption signals, failure modes, or operational lessons."
+        detail_level: "moderate"
+      evidence_quality:
+        description: "Assessment of source quality, currency, and reliability."
+        detail_level: "moderate"
+      date_accessed:
+        description: "Date the sources were accessed."
+        detail_level: "brief"
+  fit_analysis:
+    description: "How the item fits the actual Obsidian/GBrain/wikillm system."
+    fields:
+      fit_for_20k_obsidian_vault:
+        description: "Whether and how this item works with a 20,000-note Obsidian vault."
+        detail_level: "detailed"
+      fit_for_gbrain:
+        description: "How this item should integrate with GBrain or why it should not."
+        detail_level: "detailed"
+      fit_for_wikillm:
+        description: "How this item should integrate with wikillm or why it should not."
+        detail_level: "detailed"
+      fit_for_agentic_coding:
+        description: "How this item helps coding agents use personal knowledge safely and effectively."
+        detail_level: "detailed"
+      overlap_or_duplication:
+        description: "Features that duplicate existing Obsidian, GBrain, or wikillm responsibilities."
+        detail_level: "moderate"
+  implementation:
+    description: "Concrete implementation consequences."
+    fields:
+      recommended_integration:
+        description: "Specific integration design, including data flow and boundaries."
+        detail_level: "detailed"
+      exact_commands_or_apis:
+        description: "Concrete commands, API endpoints, config keys, or local paths relevant to implementation."
+        detail_level: "detailed"
+      repo_changes:
+        description: "Specific files, commands, docs, plugins, tests, or config changes recommended for /root/projects/hiwikillm."
+        detail_level: "detailed"
+      migration_steps:
+        description: "Safe step-by-step rollout for the user's existing system."
+        detail_level: "detailed"
+      verification_plan:
+        description: "How to confirm the integration worked without corrupting data."
+        detail_level: "moderate"
+  risk:
+    description: "Failure modes and mitigations."
+    fields:
+      data_loss_risks:
+        description: "Ways this approach could corrupt, rewrite, duplicate, or lose notes."
+        detail_level: "detailed"
+      privacy_security_risks:
+        description: "Secrets, private notes, remote APIs, MCP, agent permissions, and local DB risks."
+        detail_level: "detailed"
+      performance_scale_risks:
+        description: "Risks related to 20,000 notes, indexing, embeddings, file watching, databases, API costs, and locks."
+        detail_level: "detailed"
+      mitigations:
+        description: "Practical mitigations and safety rails."
+        detail_level: "detailed"
+  decision:
+    description: "Decision-oriented synthesis."
+    fields:
+      recommendation:
+        description: "Clear recommendation for this item."
+        detail_level: "detailed"
+      confidence:
+        description: "High, medium, or low confidence with reasons."
+        detail_level: "brief"
+      open_questions:
+        description: "Questions that remain after research."
+        detail_level: "moderate"
+      next_actions:
+        description: "Immediate actions the user or implementation agent should take."
+        detail_level: "detailed"
+uncertain:
+  - "should_adopt"
+  - "recommended_integration"
+  - "repo_changes"
+  - "confidence"

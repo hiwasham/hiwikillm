@@ -1,98 +1,123 @@
-# wikillm — Personal Wiki-LLM
+# wikillm
 
-Karpathy-style personal knowledge system. Inputs get distilled by an LLM into structured Markdown notes; those notes become both a hand-readable vault and a searchable index.
+`wikillm` is a personal wiki-LLM. It captures source material, distills each item into a structured Markdown note, indexes the notes for retrieval, and exposes the knowledge base through CLI commands and a private Telegram bot.
 
-**Status**: Phase A done. URL → distilled note works end-to-end via CLI.
+Sources can come from URLs, YouTube videos, GitHub repos, PDFs, free text, local source folders, and configured feeds. Notes are written to `notes/`, indexed in Milvus Lite, and enriched with `[[wikilink]]` entity data.
 
-## Three-layer plugin architecture
+## Current Capabilities
 
-Every concrete piece of behavior lives in one of three layers. Each layer is independently extensible: add a new plugin by dropping a file in the right directory and adding one import line.
+- Capture immediately with `python3 -m wikillm distill <ref>`.
+- Queue captures with `enqueue` and drain them with `process`.
+- Scan `sources/` and feed subscriptions into the queue.
+- Ask pointer or synthesized questions over indexed notes.
+- Build human-facing `notes/index.md` and `todos/index.md`.
+- Track and canonicalize `[[entities]]`.
+- Review old notes with a simple spaced-repetition schedule.
+- Serve a private Telegram bot with capture, ask, find, review, and stats commands.
+- Partition notes into named vaults.
 
-### 1. Input layer (`wikillm/inputs/`)
+## Architecture
 
-Pluggable source adapters. Each fetches raw text for a given reference.
+The package is split into small plugin layers:
 
-**Contract** (`wikillm/core/types.py::InputAdapter`):
-```python
-class MyInput:
-    name: str                                                 # unique short id
-    def matches(self, ref: str, *, kind_hint: str | None) -> bool: ...
-    def fetch(self, config: Config, item: RawItem) -> str: ...
+| Path | Purpose |
+| --- | --- |
+| `wikillm/core/` | Shared types, registry, config, SQLite queue, LLM gateway, vault helpers. |
+| `wikillm/inputs/` | Source adapters: URL, YouTube, GitHub, PDF, text. |
+| `wikillm/knowledge/` | Ordered pipeline stages: distill, write Markdown, index Milvus, index entities, log. |
+| `wikillm/outputs/` | User-facing interfaces: CLI query and Telegram bot. |
+| `wikillm/scanners/` | Source folder, feed, index, todos, review, and canonicalization utilities. |
+
+The core pipeline is intentionally small:
+
+```text
+RawItem -> input adapter -> source_text -> knowledge stages -> notes/indexes -> outputs
 ```
 
-Today: `url`. Phase B adds: `youtube`, `github`, `pdf`, `text`, `telegram_forward`, `drive_scan`. Future: `notebooklm`, `rss`, `subreddit`, `youtube_channel`, `email_imap`, `kindle_highlights`, `voice_memo`, `screenshots_folder`.
+## Quick Start
 
-**To add a new input**: write `wikillm/inputs/myinput.py` with a class that implements the contract, end the file with `register_input(MyInput())`, and add `from . import myinput` to `wikillm/inputs/__init__.py`. Done.
-
-### 2. Knowledge layer (`wikillm/knowledge/`)
-
-Pluggable ordered stages that mutate a `PipelineState`. Each stage either transforms (e.g. `llm-distill` produces a `DistilledNote`) or has side effects (e.g. `markdown-vault` writes a file, `milvus-index` upserts embeddings).
-
-**Contract** (`wikillm/core/types.py::KnowledgeStage`):
-```python
-class MyStage:
-    name: str
-    def run(self, config: Config, state: PipelineState) -> None: ...
-```
-
-Today: `llm-distill`, `markdown-vault`. Phase C adds: `milvus-index`. Phase D adds: `entity-link-extractor`. Future: `graph-store`, `crewai-pipeline`, `airflow-dag`, `dashboard-data`, `spaced-repetition-scheduler`.
-
-Stages run in the order their modules are imported in `wikillm/knowledge/__init__.py`. To insert a stage between two others, reorder the imports there.
-
-### 3. Output layer (`wikillm/outputs/`)
-
-Pluggable consumers of the knowledge layer. Each is something the user interacts with.
-
-**Contract** (`wikillm/core/types.py::OutputAdapter`):
-```python
-class MyOutput:
-    name: str
-    def serve(self, config: Config, registry) -> None: ...    # may block (bot/server)
-```
-
-Phase C adds: `telegram-qa` (pointer + synthesis modes), `claude-code-session`. Future: `weekly-digest-email`, `video-summary` (diffusion), `podcast-generator` (TTS), `graph-viz`, `dashboard`, `slack-bot`, `discord-bot`, `voice-call-bot`.
-
-## Layout
-
-```
-.claude/mcp.json            Phase B: Drive, Fetch, GitHub MCPs
-config.toml                 paths, gateway base URL, model aliases, Milvus
-data/inbox.db               SQLite capture queue (created on first run)
-notes/YYYY/MM/<slug>.md     distilled outputs — sync into Obsidian via Drive
-sources/                    raw inputs the user drops in (Phase B: Drive-mirrored)
-wikillm/                    Python package
-  cli.py                    `python -m wikillm {enqueue|process|stats|distill|list-plugins}`
-  pipeline.py               orchestrator — input fetch -> knowledge stages
-  core/
-    types.py                RawItem, DistilledNote, PipelineState, Protocols
-    registry.py             INPUTS / KNOWLEDGE_STAGES / OUTPUTS + load_all()
-    config.py               loads config.toml + dotted token lookup
-    queue.py                SQLite inbox
-    llm.py                  OpenAI-compatible chat client
-  inputs/                   one file per source adapter
-  knowledge/                one file per stage (ordered)
-  outputs/                  one file per output adapter
-scripts/smoke_test.sh
-```
-
-## Phase A quickstart (verified working)
+Install dependencies:
 
 ```bash
-cd ~/.openclaw/workspace/wikillm
-python3 -m wikillm list-plugins                    # see what's registered
-python3 -m wikillm distill https://karpathy.ai/    # one-shot, bypass queue
-python3 -m wikillm enqueue https://example.com/    # queue mode
-python3 -m wikillm process --once                  # drain one item
-python3 -m wikillm stats                           # inbox counts
+python3 -m pip install --user -r requirements.txt
 ```
 
-## Configuration
+Create local config:
 
-Edit `config.toml`. Auth tokens are NOT duplicated here — the file declares a `token_path`
-(a dotted path into `~/.openclaw/openclaw.json`) so swapping providers is a config change.
+```bash
+cp config.example.toml config.toml
+```
 
-Default endpoint: `https://api.freemodel.dev/v1` (model: `gpt-5.5`). To use a different provider, point `gateway.base_url` and `gateway.token_path` at it.
+Edit `config.toml` so `[gateway].openclaw_config`, `[gateway].token_path`, and optional Telegram settings point at your local secrets.
 
-## Next phases
+Verify plugin loading:
 
-See `/home/miraddo/.claude/plans/i-have-obsidian-on-refactored-cook.md` for the full phased roadmap (B, C, D, E) and the future-plugin catalog per layer.
+```bash
+python3 -m wikillm list-plugins
+```
+
+Capture one source:
+
+```bash
+python3 -m wikillm distill https://example.com/
+```
+
+Ask over indexed notes:
+
+```bash
+python3 -m wikillm ask "What is this source about?"
+```
+
+## Common Commands
+
+```bash
+python3 -m wikillm enqueue <ref>        # add URL/path/text to the inbox
+python3 -m wikillm process [--once]     # drain inbox through the pipeline
+python3 -m wikillm distill <ref>        # process one source immediately
+python3 -m wikillm ask <question>       # synthesized cited Q&A
+python3 -m wikillm ask <question> --mode pointer
+python3 -m wikillm scan                 # enqueue new files from sources/
+python3 -m wikillm scan-feeds           # poll configured RSS/Atom feeds
+python3 -m wikillm build-index          # write notes/index.md
+python3 -m wikillm build-todos          # write todos/index.md
+python3 -m wikillm entities --limit 50  # list frequent [[entities]]
+python3 -m wikillm backfill             # re-index notes into Milvus
+python3 -m wikillm backfill-entities    # re-extract note entities
+python3 -m wikillm review               # show notes due for rereading
+python3 -m wikillm serve telegram-bot   # run the Telegram bot
+```
+
+## Documentation
+
+Start here:
+
+- [Getting Started With wikillm](docs/tutorial-getting-started.md)
+- [How to Capture Sources and Query Notes](docs/how-to-capture-and-query.md)
+- [How to Use wikillm With Obsidian](docs/how-to-use-with-obsidian.md)
+- [How to Sync wikillm Notes With GBrain](docs/how-to-sync-with-gbrain.md)
+- [How to Add a Plugin](docs/how-to-add-a-plugin.md)
+- [CLI Reference](docs/reference-cli.md)
+- [Configuration Reference](docs/reference-configuration.md)
+- [Architecture Explanation](docs/explanation-architecture.md)
+
+Project recovery and operating docs are also available in [docs/index.md](docs/index.md).
+
+## Private State
+
+These paths are local and gitignored:
+
+- `config.toml`
+- `data/`
+- `notes/`
+- `sources/`
+- `todos/`
+
+Do not commit personal notes, Milvus/SQLite databases, Telegram tokens, or gateway credentials.
+
+## Operational Notes
+
+- LLM calls go through `wikillm/core/llm.py::chat()`.
+- Note schema is a contract. `entity-index`, `build-index`, `build-todos`, and retrieval depend on the generated frontmatter and sections.
+- Milvus Lite should be treated as single-writer. Do not run multiple bot or indexing processes against the same `data/milvus.db`.
+- `notebooklm.py` and `email_imap.py` are documented stubs.
+- `scripts/smoke_test.sh` is stale and still calls `distill-url`; use `distill` until that script is updated.
