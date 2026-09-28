@@ -28,10 +28,15 @@ Outputs and scanners
 ## The Problem
 
 A personal knowledge tool has many edges:
-
 - Sources arrive from URLs, videos, repos, PDFs, plain text, feeds, email, and Drive.
-- Storage needs to serve both humans and retrieval systems.
-- The user needs quick capture through Telegram and batch capture through scanners.
+- Storage needs to serve both 
+	- humans and 
+	- retrieval systems like claude code or alphaclaw.
+- The user needs 
+	- quick capture through Telegram 
+		- [[Andrej Karpathy’s LLM Wiki hiwa claude code Commands serve telegram-bot hiwikillmbot]]
+	- and batch capture through scanners.
+		- [[deeplearning.ai claude hiwa knowledge management crewai deeplearningai crew resource catalog manager]]
 - The LLM prompt output has to stay stable because downstream tools parse it.
 
 Without a narrow architecture, each new source or output would push special cases into the core pipeline.
@@ -39,27 +44,25 @@ Without a narrow architecture, each new source or output would push special case
 ## The Approach
 
 ### Inputs Only Fetch Text
-
-Input adapters live in `wikillm/inputs/`. They answer two questions:
-
+Input adapters live in `wikillm/inputs/`. 
+They answer two questions:
 1. Does this adapter handle the item?
 2. What text should the pipeline distill?
 
 The adapter does not write notes, index chunks, or answer questions. That keeps source-specific complexity away from the knowledge layer.
 
 Active adapters:
-
 - `url`: fetches HTTP/HTTPS content and extracts text from HTML.
 - `youtube`: uses `yt-dlp` to fetch metadata and subtitles.
 - `github`: uses GitHub's REST API to fetch repo metadata, README, and top-level tree.
 - `pdf`: extracts local PDF text with `pypdf`.
 - `text`: passes inline `RawItem.raw_payload` or `source_ref` through as text.
-
 `notebooklm.py` exists as a documented stub. It is not imported in `wikillm/inputs/__init__.py`, so it is not registered.
 
-### Knowledge Stages Run In Order
+### `/knowledge:` Knowledge Stages Run In Order
+Knowledge stages live in `wikillm/knowledge/`. 
 
-Knowledge stages live in `wikillm/knowledge/`. The order is defined by imports in `wikillm/knowledge/__init__.py`:
+The order is defined by imports in `wikillm/knowledge/__init__.py`:
 
 ```text
 llm-distill
@@ -70,22 +73,29 @@ log-writer
 ```
 
 That order matters:
-
-- `llm-distill` must run before anything can write or index a note.
-- `markdown-vault` must run before Milvus indexing because `note_path` is part of indexed metadata.
-- `entity-index` reads the final note Markdown and stores `[[wikilinks]]`.
+- `llm-distill` 
+	- must run before anything can write or index a note.
+- `markdown-vault` 
+	- must run before Milvus indexing 
+		- because `note_path` is part of indexed metadata.
+- `entity-index` 
+	- reads the final note Markdown 
+	- and stores `[[wikilinks]]`.
 - `log-writer` records the final artifact counts.
 
 The trade-off is that plugin order is simple but implicit. Adding a stage is easy, but a misplaced import can break downstream assumptions.
 
-### Outputs Are User Interfaces
-
+### /outputs : outputs Are User Interfaces
 Outputs live in `wikillm/outputs/`.
 
-- `cli-query` is registered so it appears in plugin listings, but its actual interface is `wikillm ask`.
-- `telegram-bot` is a blocking long-poll loop that handles capture, retrieval, review, and stats commands.
+- `cli-query` 
+	- is registered so it appears in plugin listings, but its actual interface is `wikillm ask`.
+- `telegram-bot` 
+	- is a blocking long-poll loop that handles capture, retrieval, review, and stats commands.
+	- [[Andrej Karpathy’s LLM Wiki hiwa claude code Commands serve telegram-bot hiwikillmbot]]
 
-The Telegram bot also drains one inbox item between polling cycles. That is a deliberate operational choice: the bot owns Milvus writes so cron scanners can enqueue SQLite work without competing for the Milvus Lite file lock.
+The Telegram bot also drains one inbox item between polling cycles. 
+That is a deliberate operational choice: the bot owns Milvus writes so cron scanners can enqueue SQLite work without competing for the Milvus Lite file lock.
 
 ```text
 cron / manual scanners

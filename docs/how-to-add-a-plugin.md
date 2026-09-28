@@ -49,6 +49,24 @@ Verify:
 python3 -m wikillm list-plugins
 ```
 
+```
+➜  hiwikillm git:(main) ✗ python3 -m wikillm list-plugins
+inputs:
+  - github
+  - pdf
+  - text
+  - url
+  - youtube
+knowledge stages (in order):
+  - llm-distill
+  - markdown-vault
+  - milvus-index
+  - entity-index
+  - log-writer
+outputs:
+  - cli-query
+```
+
 The new adapter should appear under `inputs`.
 
 ## Add A Knowledge Stage
@@ -159,7 +177,7 @@ Then exercise the smallest path:
 python3 -m wikillm distill "small test payload" --kind text
 ```
 
-If your stage writes to Milvus, entities, or note files, also inspect:
+If your stage writes to [[Milvus]], entities, or note files, also inspect:
 
 ```bash
 python3 -m wikillm stats

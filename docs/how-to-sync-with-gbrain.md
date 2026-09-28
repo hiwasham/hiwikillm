@@ -1,16 +1,19 @@
 # How to Sync wikillm Notes With GBrain
 
-This guide shows how to import `wikillm`'s generated notes into a GBrain source so agents can search and query them through GBrain.
+This guide shows how to 
+- import `wikillm`'s generated notes 
+- into a GBrain source 
+- so agents can search and query them through GBrain.
 
 ## Prerequisites
-
 - `gbrain` is installed and initialized.
-- `config.toml` exists in this repo. If it does not, copy `config.example.toml` to `config.toml` and set `[gateway].openclaw_config`.
+- `config.toml` exists in this repo.
+	- If it does not, copy `config.example.toml` to `config.toml` and set `[gateway].openclaw_config`.
 - `wikillm` has generated at least one note under `notes/`.
 - You are running commands from the project root:
 
 ```bash
-cd /root/projects/hiwikillm
+cd /mnt/d/Obsidi1/03.Projects/hiwikillm
 ```
 
 Check the tools:
@@ -19,7 +22,7 @@ Check the tools:
 gbrain --version
 python3 -m wikillm vaults
 ```
-
+خطا [[2026-09-28]]
 ## Steps
 
 1. If this is a fresh checkout, create local config and runtime folders.
